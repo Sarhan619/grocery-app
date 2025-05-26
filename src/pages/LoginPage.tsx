@@ -22,10 +22,21 @@ const LoginPage: React.FC = () => {
         navigate(userRole === 'admin' ? '/admin' : '/');
       } else {
         await signUp(email, password);
-        // Show success message or redirect
+        setError('Please check your email to confirm your registration.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      if (err instanceof Error) {
+        // Handle specific error cases
+        if (err.message.includes('user_already_exists')) {
+          setError('This email is already registered. Please try logging in instead.');
+        } else if (err.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password. Please try again.');
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
     }
   };
 
@@ -43,7 +54,10 @@ const LoginPage: React.FC = () => {
           <p className="mt-2 text-center text-sm text-gray-600">
             {isLogin ? "Don't have an account? " : "Already have an account? "}
             <button
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError(''); // Clear any existing errors when switching modes
+              }}
               className="font-medium text-green-600 hover:text-green-500"
             >
               {isLogin ? 'Sign up' : 'Sign in'}
@@ -52,7 +66,7 @@ const LoginPage: React.FC = () => {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md flex items-center">
+          <div className={`${error.includes('check your email') ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'} border px-4 py-3 rounded-md flex items-center`}>
             <AlertCircle className="h-5 w-5 mr-2" />
             <p className="text-sm">{error}</p>
           </div>

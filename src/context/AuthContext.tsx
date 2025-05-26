@@ -31,6 +31,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchUserRole(session.user.id);
+      } else {
+        setUserRole(null);
       }
       setLoading(false);
     });
@@ -39,18 +41,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function fetchUserRole(userId: string) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
 
-    if (error) {
-      console.error('Error fetching user role:', error);
-      return;
+      if (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole('user'); // Default to 'user' role on error
+        return;
+      }
+
+      // If no profile exists, default to 'user' role
+      setUserRole(data?.role ?? 'user');
+    } catch (error) {
+      console.error('Error in fetchUserRole:', error);
+      setUserRole('user'); // Default to 'user' role on error
     }
-
-    setUserRole(data.role);
   }
 
   async function signIn(email: string, password: string) {
@@ -59,14 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signUp(email: string, password: string) {
+    // Remove the role setting from signup - roles are managed by RLS policies
     const { error } = await supabase.auth.signUp({ 
       email, 
-      password,
-      options: {
-        data: {
-          role: 'user'
-        }
-      }
+      password
     });
     if (error) throw error;
   }
@@ -74,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    setUserRole(null);
   }
 
   const value = {
