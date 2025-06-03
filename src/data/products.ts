@@ -170,6 +170,7 @@ export const categories: Category[] = [
   },
   {
     id: 12,
+    
     name: "Baby Products",
     image: "https://images.pexels.com/photos/3933271/pexels-photo-3933271.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1",
     productCount: 0
