@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Filter, Search } from 'lucide-react';
 import ProductCard from '../components/products/ProductCard';
-import { products, categories } from '../data/products';
+import { supabase } from '../lib/supabase';
 import { Product } from '../types/product';
 
 const ProductsPage: React.FC = () => {
@@ -10,6 +10,9 @@ const ProductsPage: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const categoryParam = queryParams.get('category');
 
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(categoryParam);
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,8 +21,51 @@ const ProductsPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [productsData, categoriesData] = await Promise.all([
+        supabase.from('products').select(`
+          *,
+          categories:category_id(name),
+          brands:brand_id(name)
+        `),
+        supabase.from('categories').select('*')
+      ]);
+
+      if (productsData.error) throw productsData.error;
+      if (categoriesData.error) throw categoriesData.error;
+
+      const formattedProducts = productsData.data.map(product => ({
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        salePrice: product.sale_price,
+        image: product.image_url,
+        category: product.categories?.name,
+        brand: product.brands?.name,
+        inStock: product.stock_count > 0,
+        organic: product.is_organic,
+        featured: product.is_featured
+      }));
+
+      setProducts(formattedProducts);
+      setCategories(categoriesData.data);
+      setFilteredProducts(formattedProducts);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     filterProducts();
-  }, [activeCategory, searchTerm, priceRange, showOrganic]);
+  }, [activeCategory, searchTerm, priceRange, showOrganic, products]);
 
   useEffect(() => {
     if (categoryParam) {
@@ -46,7 +92,7 @@ const ProductsPage: React.FC = () => {
     
     // Filter by price range
     filtered = filtered.filter(product => {
-      const price = product.sale ? (product.salePrice || 0) : product.price;
+      const price = product.salePrice || product.price;
       return price >= priceRange[0] && price <= priceRange[1];
     });
     
@@ -78,6 +124,16 @@ const ProductsPage: React.FC = () => {
   const toggleFilters = () => {
     setShowFilters(!showFilters);
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-16 mt-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-600">Loading products...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-16 mt-8">
